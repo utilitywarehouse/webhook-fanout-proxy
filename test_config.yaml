@@ -1,0 +1,18 @@
+webhooks:
+  - path: /webhook/test1
+    method: POST
+    response:
+      code: 200
+      headers:
+        - name: Access-Control-Allow-Origin
+          value: "*"
+      body: "ok"
+    targets:
+      - 127.0.0.1:8080
+
+  - path: /test2
+    method: POST
+    response:
+      code: 204
+    targets:
+      - 127.0.0.1:8080
