@@ -32,6 +32,13 @@ var (
 		},
 		[]string{"webhook", "target", "status"},
 	)
+	pcRequestProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "webhook_requests_processed_total",
+			Help: "The total number of requests processed",
+		},
+		[]string{"webhook", "target", "success"},
+	)
 )
 
 type WebHookHandler struct {
@@ -111,7 +118,11 @@ func (wh *WebHookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// the connection and consider the delivery a failure.
 	for _, t := range wh.Targets {
 		wh.wg.Add(1)
-		go wh.proxy(t, header, clientIP, bytes.NewReader(body))
+		go func() {
+			defer wh.wg.Done()
+			ok := wh.proxy(t, header, clientIP, bytes.NewReader(body))
+			pcRequestProcessed.WithLabelValues(wh.Path, t, strconv.FormatBool(ok)).Inc()
+		}()
 	}
 
 	for _, h := range wh.Response.Headers {
@@ -122,19 +133,17 @@ func (wh *WebHookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	pcRequestRecv.WithLabelValues(wh.Path, strconv.Itoa(wh.Response.Code)).Inc()
 }
 
-func (wh *WebHookHandler) proxy(target string, header http.Header, clientIP string, body io.Reader) {
-	defer wh.wg.Done()
-
+func (wh *WebHookHandler) proxy(target string, header http.Header, clientIP string, body io.Reader) bool {
 	targetUrl, err := url.JoinPath(target, wh.Path)
 	if err != nil {
 		wh.log.Error("unable to create target url", "target", target, "err", err)
-		return
+		return false
 	}
 
 	req, err := http.NewRequest(wh.Method, targetUrl, body)
 	if err != nil {
 		wh.log.Error("unable to create new http req", "target", target, "err", err)
-		return
+		return false
 	}
 
 	maps.Copy(req.Header, header)
@@ -146,12 +155,15 @@ func (wh *WebHookHandler) proxy(target string, header http.Header, clientIP stri
 	resp, err := wh.http.Do(req)
 	if err != nil {
 		wh.log.Error("unable to send new http req", "target", target, "err", err)
-		return
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		wh.log.Error("unexpected status received from target", "target", target, "code", resp.StatusCode)
+		return false
 	}
 
 	pcRequestForwarded.WithLabelValues(wh.Path, target, strconv.Itoa(resp.StatusCode)).Inc()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		wh.log.Error("unexpected status received from target", "target", target, "code", resp.StatusCode)
+		return false
+	}
+
+	return true
 }
