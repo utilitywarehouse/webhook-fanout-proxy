@@ -119,6 +119,7 @@ func (wh *WebHookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, t := range wh.Targets {
 		wh.wg.Add(1)
 		go func() {
+			defer wh.wg.Done()
 			ok := wh.proxy(t, header, clientIP, bytes.NewReader(body))
 			pcRequestProcessed.WithLabelValues(wh.Path, t, strconv.FormatBool(ok)).Inc()
 		}()
@@ -133,8 +134,6 @@ func (wh *WebHookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wh *WebHookHandler) proxy(target string, header http.Header, clientIP string, body io.Reader) bool {
-	defer wh.wg.Done()
-
 	targetUrl, err := url.JoinPath(target, wh.Path)
 	if err != nil {
 		wh.log.Error("unable to create target url", "target", target, "err", err)
