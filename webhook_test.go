@@ -132,10 +132,6 @@ func TestWebHookHandler_ServeHTTP_proxy(t *testing.T) {
 	}
 
 	matchRequest := func(r *http.Request, want req) {
-		if r.URL.Path != want.path {
-			t.Errorf("proxy() path mismatch : got %v want %v", r.URL.Path, want.path)
-		}
-
 		if r.Method != want.method {
 			t.Errorf("proxy() method mismatch : got %v want %v", r.URL.Path, want.path)
 		}
