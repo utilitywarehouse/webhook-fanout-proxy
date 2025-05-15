@@ -9,7 +9,6 @@ import (
 	"maps"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -134,13 +133,7 @@ func (wh *WebHookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wh *WebHookHandler) proxy(target string, header http.Header, clientIP string, body io.Reader) bool {
-	targetUrl, err := url.JoinPath(target, wh.Path)
-	if err != nil {
-		wh.log.Error("unable to create target url", "target", target, "err", err)
-		return false
-	}
-
-	req, err := http.NewRequest(wh.Method, targetUrl, body)
+	req, err := http.NewRequest(wh.Method, target, body)
 	if err != nil {
 		wh.log.Error("unable to create new http req", "target", target, "err", err)
 		return false

@@ -8,11 +8,11 @@ webhooks:
           value: "*"
       body: "ok"
     targets:
-      - 127.0.0.1:8080
+      - http://127.0.0.1:8080/test1
 
   - path: /test2
     method: POST
     response:
       code: 204
     targets:
-      - 127.0.0.1:8080
+      - http://127.0.0.1:8080/test2
