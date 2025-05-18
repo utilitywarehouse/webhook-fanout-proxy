@@ -113,6 +113,17 @@ func (wh *WebHookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// verify req signature if set
+	if wh.Signature != nil {
+		sig := r.Header.Get(wh.Signature.HeaderName)
+		if !wh.Signature.verify(body, sig) {
+			wh.log.Error("request signature did not match", "sig", sig)
+			w.WriteHeader(http.StatusUnauthorized)
+			pcRequestRecv.WithLabelValues(wh.Path, "401").Inc()
+			return
+		}
+	}
+
 	// If handler takes longer to respond, then Sender might terminates
 	// the connection and consider the delivery a failure.
 	for _, t := range wh.Targets {

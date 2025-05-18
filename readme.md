@@ -13,6 +13,16 @@ webhooks:
   - path: /webhook/example
     # allowed method for the HTTP request.
     method: POST
+    # if signature config is specified proxy will verify request before forwarding to targets
+    signature:
+      # The name of the header caring payload signature
+      headerName: X-Signature-SHA256
+      # The name of the hash function defaults to sha256
+      alg: sha256
+      # if any prefix added to signature
+      prefix: sha256=
+      # The name of the ENV to get webhook secret value
+      secretFromEnv: WH_FO_TEST2_SEC
     # Specifies the HTTP response that will be returned on valid requests.
     response:
       code: 200
