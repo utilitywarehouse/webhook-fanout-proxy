@@ -12,6 +12,11 @@ webhooks:
 
   - path: /test2
     method: POST
+    signature:
+      headerName: X-Signature-SHA256
+      alg: sha256
+      prefix: sha256=
+      secretFromEnv: WH_FO_TEST2_SEC
     response:
       code: 204
     targets:

@@ -1,15 +1,20 @@
 package main
 
 import (
+	"crypto/sha256"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
 )
 
-func TestWebHookHandler_ServeHTTP(t *testing.T) {
+func TestWebHookHandler_ServeHTTP_resp(t *testing.T) {
+	webhookSecretKey := "test-signature-sec-key"
+	os.Setenv("WH_FO_TEST2_SEC", webhookSecretKey)
+
 	wg := sync.WaitGroup{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "not found"}`, http.StatusNotFound)
@@ -22,9 +27,11 @@ func TestWebHookHandler_ServeHTTP(t *testing.T) {
 	}
 
 	type req struct {
-		method string
-		path   string
-		body   string
+		method      string
+		path        string
+		headerKey   string
+		headerValue string
+		body        string
 	}
 
 	t.Run("webhook-test1", func(t *testing.T) {
@@ -36,12 +43,12 @@ func TestWebHookHandler_ServeHTTP(t *testing.T) {
 		}{
 			{
 				"valid",
-				req{"POST", "/webhook/test1", `{"something":"some"}`},
+				req{"POST", "/webhook/test1", "", "", `{"something":"some"}`},
 				200, "ok",
 			},
 			{
 				"wrong-method",
-				req{"GET", "/webhook/test1", "{}"},
+				req{"GET", "/webhook/test1", "", "", "{}"},
 				400, "",
 			},
 		}
@@ -78,12 +85,12 @@ func TestWebHookHandler_ServeHTTP(t *testing.T) {
 		}{
 			{
 				"wrong-method",
-				req{"GET", "/test2", "{}"},
+				req{"GET", "/test2", "", "", "{}"},
 				400, "",
 			},
 			{
 				"valid-tes2",
-				req{"POST", "/test2", `{"something":"some"}`},
+				req{"POST", "/test2", "X-Signature-SHA256", `sha256=` + computeHMAC(sha256.New, []byte("some_body"), webhookSecretKey), `some_body`},
 				204, "",
 			},
 		}
@@ -94,7 +101,7 @@ func TestWebHookHandler_ServeHTTP(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-
+				event.Header.Set(tt.req.headerKey, tt.req.headerValue)
 				rr := httptest.NewRecorder()
 				webhooks[1].ServeHTTP(rr, event)
 
